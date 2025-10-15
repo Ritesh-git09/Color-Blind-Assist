@@ -221,70 +221,50 @@ def main():
     tolerance = st.sidebar.slider("Color Detection Sensitivity", 10, 100, 50)
     
     # Main interface
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.header("📹 Live Camera Feed")
-        
-        # Initialize camera state
-        if 'camera_active' not in st.session_state:
+    st.header("📹 Live Camera Feed")
+    # Initialize camera state
+    if 'camera_active' not in st.session_state:
+        st.session_state.camera_active = False
+    # Camera controls
+    camera_col1, camera_col2, camera_col3 = st.columns(3)
+    with camera_col1:
+        if st.button("▶️ Start Camera"):
+            st.session_state.camera_active = True
+    with camera_col2:
+        if st.button("⏹️ Stop Camera"):
             st.session_state.camera_active = False
-        
-        # Camera controls
-        camera_col1, camera_col2, camera_col3, camera_col4 = st.columns(4)
-        with camera_col1:
-            if st.button("▶️ Start Camera"):
-                st.session_state.camera_active = True
-        with camera_col2:
-            if st.button("⏹️ Stop Camera"):
-                st.session_state.camera_active = False
-        with camera_col3:
-            if st.button("📸 Capture Frame") and st.session_state.current_frame is not None:
-                st.session_state.screenshot = st.session_state.current_frame.copy()
-                st.experimental_rerun()
-        with camera_col4:
-            detect_center = st.button("🎯 Detect Center Color")
-        
-        # Video display area
-        video_placeholder = st.empty()
-        
-        # Status display
-        status_placeholder = st.empty()
+    with camera_col3:
+        if st.button("📸 Capture Frame") and st.session_state.current_frame is not None:
+            st.session_state.screenshot = st.session_state.current_frame.copy()
+            st.rerun()
+    # Video display area
+    video_placeholder = st.empty()
+    # Status display
+    status_placeholder = st.empty()
+    # Instructions
+    st.markdown("""
+    **Instructions:**
+    1. Click '▶️ Start Camera' to begin live feed
+    2. Click '📸 Capture Frame' to freeze and analyze any pixel
+    3. Click anywhere on the captured image to detect color
+    4. Adjust settings in the sidebar
     
-    with col2:
-        st.header("🎯 Color Information")
-        
-        # Color display area
-        color_display_placeholder = st.empty()
-        
-        # Instructions
-        st.markdown("""
-        **Instructions:**
-        1. Click 'Start Camera' to begin
-        2. Click 'Detect Center Color' to analyze the center pixel
-        3. Use sidebar to adjust settings
-        4. Choose different vision types to see how colors appear
-        
-        **Features:**
-        - Real-time color detection
-        - Voice assistance  
-        - Color blindness simulation
-        - Color correction (Daltonization)
-        - Advanced color naming
-        """)
-        
-        # Manual color input
-        st.subheader("🎨 Manual Color Test")
-        manual_color = st.color_picker("Pick a color to test", "#ff0000")
-        if st.button("🔊 Speak Manual Color"):
-            # Convert hex to RGB
-            hex_color = manual_color.lstrip('#')
-            rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-            color_name = color_assist.get_color_name_advanced(rgb, tolerance)
-            
-            st.write(f"**Selected Color:** {color_name}")
-            if voice_enabled:
-                color_assist.speak_async(f"This color is {color_name}")
+    **Features:**
+    - Real-time color detection with voice
+    - Color blindness simulation & correction
+    - Click-to-detect color on captured image
+    - Advanced color naming system
+    """)
+    # Manual color input
+    st.subheader("🎨 Manual Color Test")
+    manual_color = st.color_picker("Pick a color to test", "#ff0000")
+    if st.button("🔊 Speak Manual Color"):
+        hex_color = manual_color.lstrip('#')
+        rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        color_name = color_assist.get_color_name_advanced(rgb, tolerance)
+        st.write(f"**Selected Color:** {color_name}")
+        if voice_enabled:
+            color_assist.speak_async(f"This color is {color_name}")
     
     # Fast live camera feed loop
     if st.session_state.camera_active:
@@ -295,18 +275,14 @@ def main():
         else:
             status_placeholder.success("📹 Camera is active")
             frame_rgb = None
-            
-            # Store the current frame for access outside the loop
             if 'current_frame' not in st.session_state:
                 st.session_state.current_frame = None
-            # Live feed loop
             while st.session_state.camera_active:
                 ret, frame = cap.read()
                 if not ret:
                     status_placeholder.error("Failed to read from camera.")
                     break
                 frame = cv2.flip(frame, 1)
-                # Apply selected view mode
                 if cb_type and view_mode == "Simulated":
                     processed_frame = color_assist.simulate_color_blindness(frame, cb_type)
                     label = f"Simulated {cb_selection}"
@@ -316,95 +292,110 @@ def main():
                 else:
                     processed_frame = frame.copy()
                     label = "Normal View"
-                # Add label to frame
                 cv2.putText(processed_frame, label, (10, 30),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                # Convert BGR to RGB for Streamlit
                 frame_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
-                # Update the current frame in session state
                 st.session_state.current_frame = frame_rgb
-                # Show live feed
-                video_placeholder.image(frame_rgb, channels="RGB", use_column_width=True)
-                time.sleep(0.03)  # ~30 FPS
+                video_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+                time.sleep(0.03)
             cap.release()
     else:
         status_placeholder.info("📷 Camera is inactive. Click 'Start Camera' to begin.")
-    # Screenshot and pixel selection
     if st.session_state.screenshot is not None:
         st.subheader("🖼️ Captured Frame - Select Pixel to Detect Color")
         # Display screenshot and get click
         screenshot_img = Image.fromarray(st.session_state.screenshot)
         # Use Streamlit's image coordinates (simulate click detection)
-        st.image(st.session_state.screenshot, channels="RGB", use_column_width=True)
-        st.info("Use the table below to select a pixel and detect its color")
+        st.image(st.session_state.screenshot, channels="RGB", use_container_width=True)
         
         # Button to clear screenshot and return to live view
-        if st.button("Return to Live View"):
-            st.session_state.screenshot = None
-            st.experimental_rerun()
-        # Use st.experimental_data_editor for click detection (workaround)
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("🔙 Return to Live View"):
+                st.session_state.screenshot = None
+                st.rerun()
+        with col_btn2:
+            if st.button("🔄 Recapture Frame") and st.session_state.current_frame is not None:
+                st.session_state.screenshot = st.session_state.current_frame.copy()
+                st.rerun()
+        
+        st.info("📍 Use the interactive table below to select any pixel and detect its color")
+        
+        # Use st.data_editor for click detection (workaround)
         # Convert image to DataFrame for click selection
         import pandas as pd
         arr = np.array(screenshot_img)
         h, w, _ = arr.shape
-        # Downsample for performance
-        arr_small = arr[::max(h//200,1), ::max(w//200,1)]
-        df = pd.DataFrame({f"x{i}": arr_small[:,i,0] for i in range(arr_small.shape[1])})
-        selected = st.experimental_data_editor(df, num_rows="dynamic", use_container_width=True)
-        st.write("Select a cell in the table above to pick a pixel (row/column)")
-        if selected is not None and hasattr(selected, 'iloc'):
-            # Get selected cell coordinates
-            sel_row = selected.index[0]
-            sel_col = selected.columns.get_loc(selected.columns[0])
-            # Map back to original image coordinates
-            y = sel_row * max(h//200,1)
-            x = sel_col * max(w//200,1)
-            b, g, r = arr[y, x]
-            color_name = color_assist.get_color_name_advanced((r, g, b), tolerance)
-            with color_display_placeholder.container():
-                st.color_picker("Detected Color", f"#{r:02x}{g:02x}{b:02x}", disabled=True)
-                st.write(f"**Color Name:** {color_name}")
-                st.write(f"**RGB Values:** ({r}, {g}, {b})")
-                st.write(f"**Position:** ({x}, {y})")
-                if voice_enabled:
-                    if st.button("🔊 Speak Color", key="speak_pixel_detected"):
-                        color_assist.speak_async(f"The selected color is {color_name}")
-    
-    # Additional features section
-    st.header("📊 Additional Features")
-    
-    feature_col1, feature_col2, feature_col3 = st.columns(3)
-    
-    with feature_col1:
-        st.subheader("🔬 Color Analysis")
-        if st.button("Analyze Current Frame"):
-            st.info("Analyzing color distribution in the current frame...")
-    
-    with feature_col2:
-        st.subheader("📋 Session Info")
-        if st.button("Show Session Stats"):
-            st.info(f"""
-            **Current Session:**
-            - Vision Type: {cb_selection}
-            - View Mode: {view_mode}
-            - Voice: {'Enabled' if voice_enabled else 'Disabled'}
-            - Sensitivity: {tolerance}
-            """)
-    
-    with feature_col3:
-        st.subheader("🎓 Information")
+        
+        # Downsample for performance but keep good resolution
+        downsample_factor = max(h//100, w//100, 1)
+        arr_small = arr[::downsample_factor, ::downsample_factor]
+        
+        # Create a more user-friendly display
+        st.write(f"**Image Size:** {w}x{h} pixels | **Table represents:** {arr_small.shape[1]}x{arr_small.shape[0]} grid")
+        
+        # Screenshot and pixel selection
+        if st.session_state.screenshot is not None:
+            st.subheader("🖼️ Captured Frame - Click Anywhere to Detect Color")
+            from streamlit_image_coordinates import streamlit_image_coordinates
+            screenshot_img = Image.fromarray(st.session_state.screenshot)
+            coords = streamlit_image_coordinates(
+                st.session_state.screenshot,
+                key="clickable_image",
+                width=700
+            )
+            # Analyse Frame button and statistics
+            if st.button("🔍 Analyse Frame"):
+                arr = np.array(screenshot_img)
+                avg_color = tuple(np.mean(arr.reshape(-1, 3), axis=0).astype(int))
+                color_name = color_assist.get_color_name_advanced(avg_color, tolerance)
+                st.success(f"Average Color: {color_name} | RGB: {avg_color}")
+                unique_colors = len(np.unique(arr.reshape(-1, 3), axis=0))
+                st.info(f"Unique Colors in Frame: {unique_colors}")
+
+            # Session Summary expander
+            with st.expander("Session Summary"):
+                if coords is not None and 0 <= coords["x"] < w and 0 <= coords["y"] < h:
+                    r, g, b = arr[coords["y"], coords["x"]]
+                    color_name_summary = color_assist.get_color_name_advanced((r, g, b), tolerance)
+                    st.write(f"Last Detected Color: {color_name_summary} at ({coords['x']}, {coords['y']})")
+                else:
+                    st.write("No color detected yet.")
+            # Button to clear screenshot and return to live view
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("🔙 Return to Live View"):
+                    st.session_state.screenshot = None
+                    st.rerun()
+            with col_btn2:
+                if st.button("� Recapture Frame") and st.session_state.current_frame is not None:
+                    st.session_state.screenshot = st.session_state.current_frame.copy()
+                    st.rerun()
+            # Show detected color below image
+            if coords is not None:
+                x, y = coords["x"], coords["y"]
+                arr = np.array(screenshot_img)
+                h, w, _ = arr.shape
+                if 0 <= x < w and 0 <= y < h:
+                    r, g, b = arr[y, x]
+                    color_name = color_assist.get_color_name_advanced((r, g, b), tolerance)
+                    st.markdown(f"# 🎨 {color_name.upper()}")
+                    st.color_picker("Color Preview", f"#{r:02x}{g:02x}{b:02x}", disabled=True)
+                    st.write(f"**Position:** ({x}, {y}) | **RGB:** ({r}, {g}, {b}) | **Hex:** #{r:02x}{g:02x}{b:02x}")
+                    if voice_enabled:
+                        color_assist.speak_async(f"This color is {color_name}")
         with st.expander("Color Blindness Info"):
-            st.write("""
-            **Color Vision Deficiencies:**
-            - **Protanopia**: Difficulty distinguishing red colors (affects ~1% of males)
-            - **Deuteranopia**: Difficulty distinguishing green colors (affects ~1% of males)  
-            - **Tritanopia**: Difficulty distinguishing blue colors (affects ~0.01% of population)
-            
-            This tool helps by:
-            - Providing audio descriptions of colors
-            - Simulating how colors appear to different vision types
-            - Applying correction algorithms (Daltonization)
-            - Using advanced color naming for better identification
+            st.markdown("""
+**Color Vision Deficiencies:**
+- **Protanopia**: Difficulty distinguishing red colors (affects ~1% of males)
+- **Deuteranopia**: Difficulty distinguishing green colors (affects ~1% of males)
+- **Tritanopia**: Difficulty distinguishing blue colors (affects ~0.01% of population)
+
+**This tool helps by:**
+- Providing audio descriptions of colors
+- Simulating how colors appear to different vision types
+- Applying correction algorithms (Daltonization)
+- Using advanced color naming for better identification
             """)
 
     # Footer
