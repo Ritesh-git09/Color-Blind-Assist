@@ -302,88 +302,63 @@ def main():
     else:
         status_placeholder.info("📷 Camera is inactive. Click 'Start Camera' to begin.")
     if st.session_state.screenshot is not None:
-        st.subheader("🖼️ Captured Frame - Select Pixel to Detect Color")
-        # Display screenshot and get click
+        st.subheader("🖼️ Captured Frame - Click Anywhere to Detect Color")
+        from streamlit_image_coordinates import streamlit_image_coordinates
         screenshot_img = Image.fromarray(st.session_state.screenshot)
-        # Use Streamlit's image coordinates (simulate click detection)
-        st.image(st.session_state.screenshot, channels="RGB", use_container_width=True)
         
-        # Button to clear screenshot and return to live view
-        col_btn1, col_btn2 = st.columns(2)
+        coords = streamlit_image_coordinates(
+            st.session_state.screenshot,
+            key="clickable_image",
+            width=700
+        )
+        
+        # Button controls
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
         with col_btn1:
-            if st.button("🔙 Return to Live View"):
+            if st.button("🔙 Return to Live View", key="return_to_live"):
                 st.session_state.screenshot = None
                 st.rerun()
         with col_btn2:
-            if st.button("🔄 Recapture Frame") and st.session_state.current_frame is not None:
+            if st.button("🔄 Recapture Frame", key="recapture_frame") and st.session_state.current_frame is not None:
                 st.session_state.screenshot = st.session_state.current_frame.copy()
                 st.rerun()
-        
-        st.info("📍 Use the interactive table below to select any pixel and detect its color")
-        
-        # Use st.data_editor for click detection (workaround)
-        # Convert image to DataFrame for click selection
-        import pandas as pd
-        arr = np.array(screenshot_img)
-        h, w, _ = arr.shape
-        
-        # Downsample for performance but keep good resolution
-        downsample_factor = max(h//100, w//100, 1)
-        arr_small = arr[::downsample_factor, ::downsample_factor]
-        
-        # Create a more user-friendly display
-        st.write(f"**Image Size:** {w}x{h} pixels | **Table represents:** {arr_small.shape[1]}x{arr_small.shape[0]} grid")
-        
-        # Screenshot and pixel selection
-        if st.session_state.screenshot is not None:
-            st.subheader("🖼️ Captured Frame - Click Anywhere to Detect Color")
-            from streamlit_image_coordinates import streamlit_image_coordinates
-            screenshot_img = Image.fromarray(st.session_state.screenshot)
-            coords = streamlit_image_coordinates(
-                st.session_state.screenshot,
-                key="clickable_image",
-                width=700
-            )
-            # Analyse Frame button and statistics
-            if st.button("🔍 Analyse Frame"):
+        with col_btn3:
+            if st.button("� Analyse Frame", key="analyse_frame"):
                 arr = np.array(screenshot_img)
                 avg_color = tuple(np.mean(arr.reshape(-1, 3), axis=0).astype(int))
                 color_name = color_assist.get_color_name_advanced(avg_color, tolerance)
                 st.success(f"Average Color: {color_name} | RGB: {avg_color}")
                 unique_colors = len(np.unique(arr.reshape(-1, 3), axis=0))
                 st.info(f"Unique Colors in Frame: {unique_colors}")
-
-            # Session Summary expander
-            with st.expander("Session Summary"):
-                if coords is not None and 0 <= coords["x"] < w and 0 <= coords["y"] < h:
-                    r, g, b = arr[coords["y"], coords["x"]]
-                    color_name_summary = color_assist.get_color_name_advanced((r, g, b), tolerance)
-                    st.write(f"Last Detected Color: {color_name_summary} at ({coords['x']}, {coords['y']})")
-                else:
-                    st.write("No color detected yet.")
-            # Button to clear screenshot and return to live view
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                if st.button("🔙 Return to Live View"):
-                    st.session_state.screenshot = None
-                    st.rerun()
-            with col_btn2:
-                if st.button("� Recapture Frame") and st.session_state.current_frame is not None:
-                    st.session_state.screenshot = st.session_state.current_frame.copy()
-                    st.rerun()
-            # Show detected color below image
+        
+        # Show detected color below image
+        if coords is not None:
+            x, y = coords["x"], coords["y"]
+            arr = np.array(screenshot_img)
+            h, w, _ = arr.shape
+            if 0 <= x < w and 0 <= y < h:
+                r, g, b = arr[y, x]
+                color_name = color_assist.get_color_name_advanced((r, g, b), tolerance)
+                st.markdown(f"# 🎨 {color_name.upper()}")
+                st.color_picker("Color Preview", f"#{r:02x}{g:02x}{b:02x}", disabled=True)
+                st.write(f"**Position:** ({x}, {y}) | **RGB:** ({r}, {g}, {b}) | **Hex:** #{r:02x}{g:02x}{b:02x}")
+                if voice_enabled:
+                    color_assist.speak_async(f"This color is {color_name}")
+        
+        # Session Summary expander
+        with st.expander("Session Summary"):
             if coords is not None:
                 x, y = coords["x"], coords["y"]
                 arr = np.array(screenshot_img)
                 h, w, _ = arr.shape
                 if 0 <= x < w and 0 <= y < h:
                     r, g, b = arr[y, x]
-                    color_name = color_assist.get_color_name_advanced((r, g, b), tolerance)
-                    st.markdown(f"# 🎨 {color_name.upper()}")
-                    st.color_picker("Color Preview", f"#{r:02x}{g:02x}{b:02x}", disabled=True)
-                    st.write(f"**Position:** ({x}, {y}) | **RGB:** ({r}, {g}, {b}) | **Hex:** #{r:02x}{g:02x}{b:02x}")
-                    if voice_enabled:
-                        color_assist.speak_async(f"This color is {color_name}")
+                    color_name_summary = color_assist.get_color_name_advanced((r, g, b), tolerance)
+                    st.write(f"Last Detected Color: {color_name_summary} at ({x}, {y})")
+                else:
+                    st.write("No color detected yet.")
+            else:
+                st.write("No color detected yet.")
         with st.expander("Color Blindness Info"):
             st.markdown("""
 **Color Vision Deficiencies:**
