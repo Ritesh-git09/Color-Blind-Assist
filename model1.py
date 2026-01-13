@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pyttsx3
 
-# ----------------- Voice Setup -----------------
+# ----------------- Voice Setup ------------------
 engine = pyttsx3.init()
 engine.setProperty('rate', 150)
 
