@@ -454,7 +454,7 @@ This project is made possible by:
 - Color blindness research community for validated transformation matrices
 - Scientific literature on color vision deficiencies
 - WCAG accessibility guidelines
-- Web color standards (W3C, CSS specifications)
+- Web color standards (W3C, CSS specifications) 
 
 ### Special Thanks
 
@@ -483,6 +483,6 @@ This project is made possible by:
 
 ---
 
-*Advanced Color Blind Assist v3.0 - Making colors accessible for everyone* 
+*Advanced Color Blind Assist v3.0 - Making colors accessible for everyone   * 
 
 **Last Updated**: January 2026 | **Status**: Active Development | **License**: MIT
